@@ -4,9 +4,10 @@
 
 ![Mock Interview AI Demo](demo.png)
 
+
 ## 🔗 Links
-- 🌐 Live Demo: (coming soon)
-- 📹 Demo Video: (coming soon)
+- 🌐 Live Demo: https://mock-interview-ai-eight.vercel.app
+- 🔧 Backend API: https://mock-interview-ai-hr52.onrender.com
 
 ---
 
