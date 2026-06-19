@@ -2,7 +2,7 @@
 
 ### AI-Powered Technical Interview Simulator for CS Students
 
-![Mock Interview AI Demo](demo.png)
+![Mock Interview AI Demo](Demo.png)
 
 
 ## 🔗 Links
