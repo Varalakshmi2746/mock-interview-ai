@@ -6,6 +6,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hintLoading, setHintLoading] = useState(false);
   const [role, setRole] = useState("Backend Developer");
   const [difficulty, setDifficulty] = useState("Medium");
   const [error, setError] = useState("");
@@ -13,6 +14,7 @@ function App() {
   const [questionCount, setQuestionCount] = useState(0);
   const [timer, setTimer] = useState(120);
   const [timerActive, setTimerActive] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
 
   const handleTimeUp = useCallback(async () => {
     setTimerActive(false);
@@ -39,6 +41,7 @@ function App() {
       setQuestionCount((q) => q + 1);
       setTimer(120);
       setTimerActive(true);
+      setHintsUsed(0);
       if (
         aiText.toLowerCase().includes("interview complete") ||
         aiText.toLowerCase().includes("final score")
@@ -66,6 +69,37 @@ function App() {
     return () => clearInterval(interval);
   }, [timerActive, timer, handleTimeUp]);
 
+  const getHint = async () => {
+    if (hintsUsed >= 2) return;
+    setHintLoading(true);
+    setTimerActive(false);
+    try {
+      const res = await fetch(
+        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "I'm stuck. Can you give me a small hint without revealing the full answer?",
+            role: role,
+            difficulty: difficulty,
+          }),
+        }
+      );
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { from: "hint", text: data.response },
+      ]);
+      setHintsUsed((h) => h + 1);
+      setTimerActive(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setHintLoading(false);
+    }
+  };
+
   const startInterview = async () => {
     setLoading(true);
     setError("");
@@ -73,6 +107,7 @@ function App() {
     setMessages([]);
     setQuestionCount(1);
     setTimer(120);
+    setHintsUsed(0);
     try {
       const res = await fetch(
         "https://mock-interview-ai-hr52.onrender.com/start-interview",
@@ -104,6 +139,7 @@ function App() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    setHintsUsed(0);
     try {
       const res = await fetch(
         "https://mock-interview-ai-hr52.onrender.com/submit-answer",
@@ -151,6 +187,7 @@ function App() {
     setQuestionCount(0);
     setTimer(120);
     setTimerActive(false);
+    setHintsUsed(0);
   };
 
   const extractScore = (text) => {
@@ -190,13 +227,11 @@ function App() {
           <p className="text-center text-gray-400 mb-6">
             Practice technical interviews with AI
           </p>
-
           {error && (
             <div className="bg-red-900 text-red-300 p-3 rounded-lg mb-4 text-sm">
               ⚠️ {error}
             </div>
           )}
-
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-1 block">Role</label>
             <select
@@ -210,7 +245,6 @@ function App() {
               <option>Data Structures & Algorithms</option>
             </select>
           </div>
-
           <div className="mb-6">
             <label className="text-gray-400 text-sm mb-1 block">Difficulty</label>
             <select
@@ -223,7 +257,6 @@ function App() {
               <option>Hard</option>
             </select>
           </div>
-
           <button
             onClick={startInterview}
             disabled={loading}
@@ -243,15 +276,11 @@ function App() {
             <h1 className="text-lg font-bold text-blue-400">
               🎯 {role}
             </h1>
-
-            {/* Question Counter */}
             <div className="bg-gray-800 px-4 py-2 rounded-xl">
               <span className="text-gray-400 text-sm">Question </span>
               <span className="text-white font-bold">{questionCount}</span>
               <span className="text-gray-400 text-sm">/5</span>
             </div>
-
-            {/* Timer */}
             <div className={`text-2xl font-bold ${getTimerColor()}`}>
               ⏱ {formatTime(timer)}
             </div>
@@ -270,11 +299,16 @@ function App() {
                   className={`max-w-lg p-4 rounded-2xl text-sm leading-relaxed ${
                     msg.from === "ai"
                       ? "bg-gray-800 text-white"
+                      : msg.from === "hint"
+                      ? "bg-yellow-900 border border-yellow-600 text-white w-full"
                       : "bg-blue-600 text-white"
                   }`}
                 >
                   {msg.from === "ai" && (
                     <p className="text-blue-400 font-bold mb-1">🤖 Interviewer</p>
+                  )}
+                  {msg.from === "hint" && (
+                    <p className="text-yellow-400 font-bold mb-1">💡 Hint ({hintsUsed}/2 used)</p>
                   )}
                   {msg.from === "user" && (
                     <p className="text-blue-200 font-bold mb-1">You</p>
@@ -283,30 +317,49 @@ function App() {
                 </div>
               </div>
             ))}
-            {loading && (
+            {(loading || hintLoading) && (
               <div className="flex justify-start">
                 <div className="bg-gray-800 p-4 rounded-2xl text-gray-400">
-                  🤖 Thinking...
+                  {hintLoading ? "💡 Getting hint..." : "🤖 Thinking..."}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <div className="flex gap-2">
-            <textarea
-              className="flex-1 bg-gray-800 rounded-xl p-3 text-white resize-none"
-              rows={3}
-              placeholder="Type your answer here..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
+          {/* Input + Hint Button */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <textarea
+                className="flex-1 bg-gray-800 rounded-xl p-3 text-white resize-none"
+                rows={3}
+                placeholder="Type your answer here..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button
+                onClick={submitAnswer}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 px-6 rounded-xl font-bold transition"
+              >
+                Send
+              </button>
+            </div>
+
+            {/* Hint Button */}
             <button
-              onClick={submitAnswer}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 px-6 rounded-xl font-bold transition"
+              onClick={getHint}
+              disabled={hintLoading || loading || hintsUsed >= 2}
+              className={`w-full py-2 rounded-xl font-bold transition text-sm ${
+                hintsUsed >= 2
+                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-yellow-700 hover:bg-yellow-600 text-white"
+              }`}
             >
-              Send
+              {hintsUsed >= 2
+                ? "💡 No more hints (2/2 used)"
+                : hintLoading
+                ? "💡 Getting hint..."
+                : `💡 Get Hint (${2 - hintsUsed} remaining)`}
             </button>
           </div>
         </div>
@@ -319,7 +372,6 @@ function App() {
             🏆 Interview Complete!
           </h1>
           <p className="text-gray-400 mb-6">Here's your performance summary</p>
-
           <div className="bg-gray-800 rounded-2xl p-6 mb-6">
             <p className="text-gray-400 mb-2">Your Score</p>
             <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>
@@ -327,14 +379,12 @@ function App() {
             </p>
             <p className="text-gray-400 text-xl mt-1">/ 10</p>
           </div>
-
           <div className="bg-gray-800 rounded-2xl p-4 mb-6 text-left">
             <p className="text-blue-400 font-bold mb-2">📝 Interviewer Feedback</p>
             <p className="text-gray-300 text-sm leading-relaxed">
               {finalFeedback}
             </p>
           </div>
-
           <div className="mb-6">
             {parseInt(score) >= 8 && (
               <p className="text-green-400 font-bold">
@@ -352,7 +402,6 @@ function App() {
               </p>
             )}
           </div>
-
           <div className="flex gap-3">
             <button
               onClick={tryAgain}
