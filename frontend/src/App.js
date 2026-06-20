@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 function App() {
   const [started, setStarted] = useState(false);
@@ -14,21 +14,7 @@ function App() {
   const [timer, setTimer] = useState(120);
   const [timerActive, setTimerActive] = useState(false);
 
-  // Timer logic
-  useEffect(() => {
-    let interval = null;
-    if (timerActive && timer > 0) {
-      interval = setInterval(() => {
-        setTimer((t) => t - 1);
-      }, 1000);
-    } else if (timer === 0 && timerActive) {
-      // Time up — auto submit
-      handleTimeUp();
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timer]);
-
-  const handleTimeUp = async () => {
+  const handleTimeUp = useCallback(async () => {
     setTimerActive(false);
     const timeUpMsg = "Time up! I need more time to think about this.";
     const userMsg = { from: "user", text: timeUpMsg };
@@ -66,7 +52,19 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [role, difficulty]);
+
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((t) => t - 1);
+      }, 1000);
+    } else if (timer === 0 && timerActive) {
+      handleTimeUp();
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timer, handleTimeUp]);
 
   const startInterview = async () => {
     setLoading(true);
