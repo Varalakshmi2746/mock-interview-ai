@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "./supabase";
 
 function App() {
+  const [user, setUser] = useState(null);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -15,12 +17,57 @@ function App() {
   const [timer, setTimer] = useState(120);
   const [timerActive, setTimerActive] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState("login");
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Check user session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
+
+  // Fetch history
+  const fetchHistory = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("interviews")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setHistory(data || []);
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchHistory();
+  }, [user, fetchHistory]);
+
+  // Save interview
+  const saveInterview = async (score, feedback) => {
+    if (!user) return;
+    await supabase.from("interviews").insert([{
+      user_id: user.id,
+      user_email: user.email,
+      role: role,
+      difficulty: difficulty,
+      score: score,
+      feedback: feedback,
+    }]);
+    fetchHistory();
+  };
 
   const handleTimeUp = useCallback(async () => {
     setTimerActive(false);
     const timeUpMsg = "Time up! I need more time to think about this.";
-    const userMsg = { from: "user", text: timeUpMsg };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, { from: "user", text: timeUpMsg }]);
     setLoading(true);
     try {
       const res = await fetch(
@@ -28,11 +75,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: timeUpMsg,
-            role: role,
-            difficulty: difficulty,
-          }),
+          body: JSON.stringify({ message: timeUpMsg, role, difficulty }),
         }
       );
       const data = await res.json();
@@ -42,12 +85,13 @@ function App() {
       setTimer(120);
       setTimerActive(true);
       setHintsUsed(0);
-      if (
-        aiText.toLowerCase().includes("interview complete") ||
-        aiText.toLowerCase().includes("final score")
-      ) {
+      if (aiText.toLowerCase().includes("interview complete") ||
+          aiText.toLowerCase().includes("final score")) {
         setFinalFeedback(aiText);
         setTimerActive(false);
+        const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
+        const score = scoreMatch ? scoreMatch[1] : "?";
+        await saveInterview(score, aiText);
         setTimeout(() => setFinished(true), 2000);
       }
     } catch (err) {
@@ -60,14 +104,35 @@ function App() {
   useEffect(() => {
     let interval = null;
     if (timerActive && timer > 0) {
-      interval = setInterval(() => {
-        setTimer((t) => t - 1);
-      }, 1000);
+      interval = setInterval(() => setTimer((t) => t - 1), 1000);
     } else if (timer === 0 && timerActive) {
       handleTimeUp();
     }
     return () => clearInterval(interval);
   }, [timerActive, timer, handleTimeUp]);
+
+  const handleAuth = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      if (authMode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setAuthError(error.message);
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) setAuthError(error.message);
+        else setAuthError("Check your email to confirm signup!");
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setHistory([]);
+  };
 
   const getHint = async () => {
     if (hintsUsed >= 2) return;
@@ -80,17 +145,13 @@ function App() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: "I'm stuck. Can you give me a small hint without revealing the full answer?",
-            role: role,
-            difficulty: difficulty,
+            message: "I'm stuck. Give me a small hint without revealing the full answer.",
+            role, difficulty,
           }),
         }
       );
       const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { from: "hint", text: data.response },
-      ]);
+      setMessages((prev) => [...prev, { from: "hint", text: data.response }]);
       setHintsUsed((h) => h + 1);
       setTimerActive(true);
     } catch (err) {
@@ -108,17 +169,14 @@ function App() {
     setQuestionCount(1);
     setTimer(120);
     setHintsUsed(0);
+    setShowHistory(false);
     try {
       const res = await fetch(
         "https://mock-interview-ai-hr52.onrender.com/start-interview",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: "start",
-            role: role,
-            difficulty: difficulty,
-          }),
+          body: JSON.stringify({ message: "start", role, difficulty }),
         }
       );
       const data = await res.json();
@@ -135,8 +193,7 @@ function App() {
   const submitAnswer = async () => {
     if (!input.trim()) return;
     setTimerActive(false);
-    const userMsg = { from: "user", text: input };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, { from: "user", text: input }]);
     setInput("");
     setLoading(true);
     setHintsUsed(0);
@@ -146,24 +203,20 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: input,
-            role: role,
-            difficulty: difficulty,
-          }),
+          body: JSON.stringify({ message: input, role, difficulty }),
         }
       );
       const data = await res.json();
       const aiText = data.response;
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
-
-      if (
-        aiText.toLowerCase().includes("interview complete") ||
-        aiText.toLowerCase().includes("final score") ||
-        aiText.toLowerCase().includes("overall score")
-      ) {
+      if (aiText.toLowerCase().includes("interview complete") ||
+          aiText.toLowerCase().includes("final score") ||
+          aiText.toLowerCase().includes("overall score")) {
         setFinalFeedback(aiText);
         setTimerActive(false);
+        const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
+        const score = scoreMatch ? scoreMatch[1] : "?";
+        await saveInterview(score, aiText);
         setTimeout(() => setFinished(true), 2000);
       } else {
         setQuestionCount((q) => q + 1);
@@ -215,67 +268,174 @@ function App() {
 
   const score = extractScore(finalFeedback);
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
-
-      {/* Setup Screen */}
-      {!started && !finished && (
+  // Auth Screen
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
         <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-2xl">
           <h1 className="text-3xl font-bold text-center mb-2 text-blue-400">
             🎯 Mock Interview AI
           </h1>
           <p className="text-center text-gray-400 mb-6">
-            Practice technical interviews with AI
+            {authMode === "login" ? "Login to continue" : "Create account"}
           </p>
-          {error && (
-            <div className="bg-red-900 text-red-300 p-3 rounded-lg mb-4 text-sm">
-              ⚠️ {error}
+
+          {authError && (
+            <div className={`p-3 rounded-lg mb-4 text-sm ${
+              authError.includes("Check") ? "bg-green-900 text-green-300" : "bg-red-900 text-red-300"
+            }`}>
+              {authError}
             </div>
           )}
+
           <div className="mb-4">
-            <label className="text-gray-400 text-sm mb-1 block">Role</label>
-            <select
+            <label className="text-gray-400 text-sm mb-1 block">Email</label>
+            <input
+              type="email"
               className="w-full bg-gray-800 rounded-lg p-3 text-white"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-            >
-              <option>Backend Developer</option>
-              <option>Frontend Developer</option>
-              <option>Full Stack Developer</option>
-              <option>Data Structures & Algorithms</option>
-            </select>
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
+
           <div className="mb-6">
-            <label className="text-gray-400 text-sm mb-1 block">Difficulty</label>
-            <select
+            <label className="text-gray-400 text-sm mb-1 block">Password</label>
+            <input
+              type="password"
               className="w-full bg-gray-800 rounded-lg p-3 text-white"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-            >
-              <option>Easy</option>
-              <option>Medium</option>
-              <option>Hard</option>
-            </select>
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
+
           <button
-            onClick={startInterview}
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition"
+            onClick={handleAuth}
+            disabled={authLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition mb-4"
           >
-            {loading ? "Starting..." : "Start Interview 🚀"}
+            {authLoading ? "Loading..." : authMode === "login" ? "Login" : "Sign Up"}
           </button>
+
+          <p className="text-center text-gray-400 text-sm">
+            {authMode === "login" ? "Account ledu? " : "Already account undi? "}
+            <button
+              onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
+              className="text-blue-400 hover:underline"
+            >
+              {authMode === "login" ? "Sign Up" : "Login"}
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
+
+      {/* Setup Screen */}
+      {!started && !finished && (
+        <div className="w-full max-w-md">
+
+          {/* Top Bar */}
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-gray-400 text-sm">👋 {user.email}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm"
+              >
+                📋 History
+              </button>
+              <button
+                onClick={handleLogout}
+                className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          {/* History Panel */}
+          {showHistory && (
+            <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-64 overflow-y-auto">
+              <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
+              {history.length === 0 ? (
+                <p className="text-gray-400 text-sm">No interviews yet!</p>
+              ) : (
+                history.map((h, i) => (
+                  <div key={i} className="bg-gray-800 rounded-xl p-3 mb-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">{h.role} • {h.difficulty}</span>
+                      <span className={`font-bold text-lg ${getScoreColor(parseInt(h.score))}`}>
+                        {h.score}/10
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-1">
+                      {new Date(h.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Setup Card */}
+          <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl">
+            <h1 className="text-3xl font-bold text-center mb-2 text-blue-400">
+              🎯 Mock Interview AI
+            </h1>
+            <p className="text-center text-gray-400 mb-6">
+              Practice technical interviews with AI
+            </p>
+            {error && (
+              <div className="bg-red-900 text-red-300 p-3 rounded-lg mb-4 text-sm">
+                ⚠️ {error}
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">Role</label>
+              <select
+                className="w-full bg-gray-800 rounded-lg p-3 text-white"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              >
+                <option>Backend Developer</option>
+                <option>Frontend Developer</option>
+                <option>Full Stack Developer</option>
+                <option>Data Structures & Algorithms</option>
+              </select>
+            </div>
+            <div className="mb-6">
+              <label className="text-gray-400 text-sm mb-1 block">Difficulty</label>
+              <select
+                className="w-full bg-gray-800 rounded-lg p-3 text-white"
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+              >
+                <option>Easy</option>
+                <option>Medium</option>
+                <option>Hard</option>
+              </select>
+            </div>
+            <button
+              onClick={startInterview}
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition"
+            >
+              {loading ? "Starting..." : "Start Interview 🚀"}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Interview Screen */}
       {started && !finished && (
         <div className="w-full max-w-2xl flex flex-col h-screen py-4">
-
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-bold text-blue-400">
-              🎯 {role}
-            </h1>
+            <h1 className="text-lg font-bold text-blue-400">🎯 {role}</h1>
             <div className="bg-gray-800 px-4 py-2 rounded-xl">
               <span className="text-gray-400 text-sm">Question </span>
               <span className="text-white font-bold">{questionCount}</span>
@@ -286,33 +446,17 @@ function App() {
             </div>
           </div>
 
-          {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${
-                  msg.from === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-lg p-4 rounded-2xl text-sm leading-relaxed ${
-                    msg.from === "ai"
-                      ? "bg-gray-800 text-white"
-                      : msg.from === "hint"
-                      ? "bg-yellow-900 border border-yellow-600 text-white w-full"
-                      : "bg-blue-600 text-white"
-                  }`}
-                >
-                  {msg.from === "ai" && (
-                    <p className="text-blue-400 font-bold mb-1">🤖 Interviewer</p>
-                  )}
-                  {msg.from === "hint" && (
-                    <p className="text-yellow-400 font-bold mb-1">💡 Hint ({hintsUsed}/2 used)</p>
-                  )}
-                  {msg.from === "user" && (
-                    <p className="text-blue-200 font-bold mb-1">You</p>
-                  )}
+              <div key={i} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-lg p-4 rounded-2xl text-sm leading-relaxed ${
+                  msg.from === "ai" ? "bg-gray-800 text-white" :
+                  msg.from === "hint" ? "bg-yellow-900 border border-yellow-600 text-white w-full" :
+                  "bg-blue-600 text-white"
+                }`}>
+                  {msg.from === "ai" && <p className="text-blue-400 font-bold mb-1">🤖 Interviewer</p>}
+                  {msg.from === "hint" && <p className="text-yellow-400 font-bold mb-1">💡 Hint ({hintsUsed}/2 used)</p>}
+                  {msg.from === "user" && <p className="text-blue-200 font-bold mb-1">You</p>}
                   {msg.text}
                 </div>
               </div>
@@ -326,7 +470,6 @@ function App() {
             )}
           </div>
 
-          {/* Input + Hint Button */}
           <div className="space-y-2">
             <div className="flex gap-2">
               <textarea
@@ -344,22 +487,17 @@ function App() {
                 Send
               </button>
             </div>
-
-            {/* Hint Button */}
             <button
               onClick={getHint}
               disabled={hintLoading || loading || hintsUsed >= 2}
               className={`w-full py-2 rounded-xl font-bold transition text-sm ${
-                hintsUsed >= 2
-                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-yellow-700 hover:bg-yellow-600 text-white"
+                hintsUsed >= 2 ? "bg-gray-700 text-gray-500 cursor-not-allowed" :
+                "bg-yellow-700 hover:bg-yellow-600 text-white"
               }`}
             >
-              {hintsUsed >= 2
-                ? "💡 No more hints (2/2 used)"
-                : hintLoading
-                ? "💡 Getting hint..."
-                : `💡 Get Hint (${2 - hintsUsed} remaining)`}
+              {hintsUsed >= 2 ? "💡 No more hints (2/2 used)" :
+               hintLoading ? "💡 Getting hint..." :
+               `💡 Get Hint (${2 - hintsUsed} remaining)`}
             </button>
           </div>
         </div>
@@ -368,51 +506,30 @@ function App() {
       {/* Score Screen */}
       {finished && (
         <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
-          <h1 className="text-3xl font-bold mb-2 text-blue-400">
-            🏆 Interview Complete!
-          </h1>
+          <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
           <p className="text-gray-400 mb-6">Here's your performance summary</p>
           <div className="bg-gray-800 rounded-2xl p-6 mb-6">
             <p className="text-gray-400 mb-2">Your Score</p>
-            <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>
-              {score}
-            </p>
+            <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>{score}</p>
             <p className="text-gray-400 text-xl mt-1">/ 10</p>
           </div>
           <div className="bg-gray-800 rounded-2xl p-4 mb-6 text-left">
             <p className="text-blue-400 font-bold mb-2">📝 Interviewer Feedback</p>
-            <p className="text-gray-300 text-sm leading-relaxed">
-              {finalFeedback}
-            </p>
+            <p className="text-gray-300 text-sm leading-relaxed">{finalFeedback}</p>
+          </div>
+          <div className="mb-4 bg-gray-800 rounded-xl p-3">
+            <p className="text-green-400 text-sm">✅ Interview saved to your history!</p>
           </div>
           <div className="mb-6">
-            {parseInt(score) >= 8 && (
-              <p className="text-green-400 font-bold">
-                🌟 Excellent! You're interview ready!
-              </p>
-            )}
-            {parseInt(score) >= 5 && parseInt(score) < 8 && (
-              <p className="text-yellow-400 font-bold">
-                👍 Good effort! Keep practicing!
-              </p>
-            )}
-            {parseInt(score) < 5 && (
-              <p className="text-red-400 font-bold">
-                💪 Keep going! Practice makes perfect!
-              </p>
-            )}
+            {parseInt(score) >= 8 && <p className="text-green-400 font-bold">🌟 Excellent! You're interview ready!</p>}
+            {parseInt(score) >= 5 && parseInt(score) < 8 && <p className="text-yellow-400 font-bold">👍 Good effort! Keep practicing!</p>}
+            {parseInt(score) < 5 && <p className="text-red-400 font-bold">💪 Keep going! Practice makes perfect!</p>}
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={tryAgain}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition"
-            >
+            <button onClick={tryAgain} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
               🔄 Try Again
             </button>
-            <button
-              onClick={() => {setStarted(false); tryAgain();}}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition"
-            >
+            <button onClick={() => { setStarted(false); tryAgain(); }} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
               🏠 Home
             </button>
           </div>
