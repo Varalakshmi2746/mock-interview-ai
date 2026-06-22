@@ -26,6 +26,7 @@ class UserMessage(BaseModel):
     message: str
     role: str
     difficulty: str
+    topic: str = "General (Mixed)"
 
 def ask_ai(messages):
     response = requests.post(
@@ -54,8 +55,10 @@ async def start_interview(data: UserMessage):
     system_prompt = f"""You are a strict but encouraging technical interviewer
     for a software company interviewing for {data.role} role.
     Difficulty: {data.difficulty}.
+    Topic Focus: {data.topic}.
     Rules:
     - Ask ONE question at a time
+    - Questions must be specifically about {data.topic}
     - After candidate answers give brief feedback
     - Then ask next question
     - Ask total 5 questions only
@@ -68,7 +71,7 @@ async def start_interview(data: UserMessage):
 
     conversation_history.append({
         "role": "user",
-        "content": f"I am ready. Please start my {data.role} interview."
+        "content": f"I am ready. Please start my {data.role} interview focusing on {data.topic}."
     })
 
     ai_response = ask_ai(conversation_history)
