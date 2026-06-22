@@ -25,7 +25,6 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Check user session
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -35,7 +34,7 @@ function App() {
     });
   }, []);
 
-  // Fetch history
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchHistory = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
@@ -50,8 +49,8 @@ function App() {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
-  // Save interview
-  const saveInterview = async (score, feedback) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const saveInterview = useCallback(async (score, feedback) => {
     if (!user) return;
     await supabase.from("interviews").insert([{
       user_id: user.id,
@@ -62,8 +61,9 @@ function App() {
       feedback: feedback,
     }]);
     fetchHistory();
-  };
+  }, [user, role, difficulty, fetchHistory]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleTimeUp = useCallback(async () => {
     setTimerActive(false);
     const timeUpMsg = "Time up! I need more time to think about this.";
@@ -90,8 +90,8 @@ function App() {
         setFinalFeedback(aiText);
         setTimerActive(false);
         const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
-        const score = scoreMatch ? scoreMatch[1] : "?";
-        await saveInterview(score, aiText);
+        const s = scoreMatch ? scoreMatch[1] : "?";
+        await saveInterview(s, aiText);
         setTimeout(() => setFinished(true), 2000);
       }
     } catch (err) {
@@ -99,7 +99,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [role, difficulty]);
+  }, [role, difficulty, saveInterview]);
 
   useEffect(() => {
     let interval = null;
@@ -215,8 +215,8 @@ function App() {
         setFinalFeedback(aiText);
         setTimerActive(false);
         const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
-        const score = scoreMatch ? scoreMatch[1] : "?";
-        await saveInterview(score, aiText);
+        const s = scoreMatch ? scoreMatch[1] : "?";
+        await saveInterview(s, aiText);
         setTimeout(() => setFinished(true), 2000);
       } else {
         setQuestionCount((q) => q + 1);
@@ -268,7 +268,6 @@ function App() {
 
   const score = extractScore(finalFeedback);
 
-  // Auth Screen
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
@@ -279,7 +278,6 @@ function App() {
           <p className="text-center text-gray-400 mb-6">
             {authMode === "login" ? "Login to continue" : "Create account"}
           </p>
-
           {authError && (
             <div className={`p-3 rounded-lg mb-4 text-sm ${
               authError.includes("Check") ? "bg-green-900 text-green-300" : "bg-red-900 text-red-300"
@@ -287,7 +285,6 @@ function App() {
               {authError}
             </div>
           )}
-
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-1 block">Email</label>
             <input
@@ -298,7 +295,6 @@ function App() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-
           <div className="mb-6">
             <label className="text-gray-400 text-sm mb-1 block">Password</label>
             <input
@@ -309,7 +305,6 @@ function App() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-
           <button
             onClick={handleAuth}
             disabled={authLoading}
@@ -317,7 +312,6 @@ function App() {
           >
             {authLoading ? "Loading..." : authMode === "login" ? "Login" : "Sign Up"}
           </button>
-
           <p className="text-center text-gray-400 text-sm">
             {authMode === "login" ? "Account ledu? " : "Already account undi? "}
             <button
@@ -334,12 +328,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
-
-      {/* Setup Screen */}
       {!started && !finished && (
         <div className="w-full max-w-md">
-
-          {/* Top Bar */}
           <div className="flex justify-between items-center mb-4">
             <p className="text-gray-400 text-sm">👋 {user.email}</p>
             <div className="flex gap-2">
@@ -357,8 +347,6 @@ function App() {
               </button>
             </div>
           </div>
-
-          {/* History Panel */}
           {showHistory && (
             <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-64 overflow-y-auto">
               <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
@@ -381,8 +369,6 @@ function App() {
               )}
             </div>
           )}
-
-          {/* Setup Card */}
           <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl">
             <h1 className="text-3xl font-bold text-center mb-2 text-blue-400">
               🎯 Mock Interview AI
@@ -431,7 +417,6 @@ function App() {
         </div>
       )}
 
-      {/* Interview Screen */}
       {started && !finished && (
         <div className="w-full max-w-2xl flex flex-col h-screen py-4">
           <div className="flex items-center justify-between mb-4">
@@ -445,7 +430,6 @@ function App() {
               ⏱ {formatTime(timer)}
             </div>
           </div>
-
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
@@ -469,7 +453,6 @@ function App() {
               </div>
             )}
           </div>
-
           <div className="space-y-2">
             <div className="flex gap-2">
               <textarea
@@ -503,7 +486,6 @@ function App() {
         </div>
       )}
 
-      {/* Score Screen */}
       {finished && (
         <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
           <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
