@@ -11,6 +11,7 @@ function App() {
   const [hintLoading, setHintLoading] = useState(false);
   const [role, setRole] = useState("Backend Developer");
   const [difficulty, setDifficulty] = useState("Medium");
+  const [topic, setTopic] = useState("General (Mixed)");
   const [error, setError] = useState("");
   const [finalFeedback, setFinalFeedback] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
@@ -75,7 +76,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: timeUpMsg, role, difficulty }),
+          body: JSON.stringify({ message: timeUpMsg, role, difficulty, topic }),
         }
       );
       const data = await res.json();
@@ -99,7 +100,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [role, difficulty, saveInterview]);
+  }, [role, difficulty, topic, saveInterview]);
 
   useEffect(() => {
     let interval = null;
@@ -146,7 +147,7 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: "I'm stuck. Give me a small hint without revealing the full answer.",
-            role, difficulty,
+            role, difficulty, topic,
           }),
         }
       );
@@ -176,7 +177,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "start", role, difficulty }),
+          body: JSON.stringify({ message: "start", role, difficulty, topic }),
         }
       );
       const data = await res.json();
@@ -203,7 +204,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: input, role, difficulty }),
+          body: JSON.stringify({ message: input, role, difficulty, topic }),
         }
       );
       const data = await res.json();
@@ -347,6 +348,7 @@ function App() {
               </button>
             </div>
           </div>
+
           {showHistory && (
             <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-64 overflow-y-auto">
               <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
@@ -369,6 +371,7 @@ function App() {
               )}
             </div>
           )}
+
           <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl">
             <h1 className="text-3xl font-bold text-center mb-2 text-blue-400">
               🎯 Mock Interview AI
@@ -392,6 +395,23 @@ function App() {
                 <option>Frontend Developer</option>
                 <option>Full Stack Developer</option>
                 <option>Data Structures & Algorithms</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">Topic</label>
+              <select
+                className="w-full bg-gray-800 rounded-lg p-3 text-white"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+              >
+                <option>General (Mixed)</option>
+                <option>DBMS</option>
+                <option>OOPs</option>
+                <option>Operating Systems</option>
+                <option>Computer Networks</option>
+                <option>Data Structures</option>
+                <option>Algorithms</option>
+                <option>System Design</option>
               </select>
             </div>
             <div className="mb-6">
@@ -420,7 +440,7 @@ function App() {
       {started && !finished && (
         <div className="w-full max-w-2xl flex flex-col h-screen py-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-bold text-blue-400">🎯 {role}</h1>
+            <h1 className="text-lg font-bold text-blue-400">🎯 {role} • {topic}</h1>
             <div className="bg-gray-800 px-4 py-2 rounded-xl">
               <span className="text-gray-400 text-sm">Question </span>
               <span className="text-white font-bold">{questionCount}</span>
@@ -430,6 +450,7 @@ function App() {
               ⏱ {formatTime(timer)}
             </div>
           </div>
+
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
@@ -453,6 +474,7 @@ function App() {
               </div>
             )}
           </div>
+
           <div className="space-y-2">
             <div className="flex gap-2">
               <textarea
