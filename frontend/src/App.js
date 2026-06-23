@@ -559,6 +559,27 @@ function App() {
           </div>
         </div>
       )}
+      <div className="flex items-center justify-between mb-4">
+  <h1 className="text-lg font-bold text-blue-400">
+    🏢 {company} • {role}
+  </h1>
+  <div className="bg-gray-800 px-4 py-2 rounded-xl">
+    <span className="text-gray-400 text-sm">Question </span>
+    <span className="text-white font-bold">{questionCount}</span>
+    <span className="text-gray-400 text-sm">/5</span>
+  </div>
+  <div className="flex items-center gap-2">
+    <div className={`text-2xl font-bold ${getTimerColor()}`}>
+      ⏱ {formatTime(timer)}
+    </div>
+    <button
+      onClick={tryAgain}
+      className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm text-white"
+    >
+      ✕ End
+    </button>
+  </div>
+</div>
       {finished && (
   <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
     <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
