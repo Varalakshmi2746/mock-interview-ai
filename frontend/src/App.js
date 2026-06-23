@@ -12,6 +12,7 @@ function App() {
   const [role, setRole] = useState("Backend Developer");
   const [difficulty, setDifficulty] = useState("Medium");
   const [topic, setTopic] = useState("General (Mixed)");
+  const [company, setCompany] = useState("General");
   const [error, setError] = useState("");
   const [finalFeedback, setFinalFeedback] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
@@ -76,7 +77,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: timeUpMsg, role, difficulty, topic }),
+          body: JSON.stringify({ message: timeUpMsg, role, difficulty, topic, company }),
         }
       );
       const data = await res.json();
@@ -100,7 +101,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [role, difficulty, topic, saveInterview]);
+  }, [role, difficulty, topic, company, saveInterview]);
 
   useEffect(() => {
     let interval = null;
@@ -147,7 +148,7 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: "I'm stuck. Give me a small hint without revealing the full answer.",
-            role, difficulty, topic,
+            role, difficulty, topic, company,
           }),
         }
       );
@@ -177,7 +178,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "start", role, difficulty, topic }),
+          body: JSON.stringify({ message: "start", role, difficulty, topic, company }),
         }
       );
       const data = await res.json();
@@ -204,7 +205,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: input, role, difficulty, topic }),
+          body: JSON.stringify({ message: input, role, difficulty, topic, company }),
         }
       );
       const data = await res.json();
@@ -242,6 +243,7 @@ function App() {
     setTimer(120);
     setTimerActive(false);
     setHintsUsed(0);
+    setCompany("General");
   };
 
   const extractScore = (text) => {
@@ -385,6 +387,21 @@ function App() {
               </div>
             )}
             <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">🏢 Company Style</label>
+              <select
+                className="w-full bg-gray-800 rounded-lg p-3 text-white"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              >
+                <option>General</option>
+                <option>TCS</option>
+                <option>Infosys</option>
+                <option>Wipro</option>
+                <option>Accenture</option>
+                <option>Product Company</option>
+              </select>
+            </div>
+            <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">Role</label>
               <select
                 className="w-full bg-gray-800 rounded-lg p-3 text-white"
@@ -440,7 +457,9 @@ function App() {
       {started && !finished && (
         <div className="w-full max-w-2xl flex flex-col h-screen py-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-bold text-blue-400">🎯 {role} • {topic}</h1>
+            <h1 className="text-lg font-bold text-blue-400">
+              🏢 {company} • {role}
+            </h1>
             <div className="bg-gray-800 px-4 py-2 rounded-xl">
               <span className="text-gray-400 text-sm">Question </span>
               <span className="text-white font-bold">{questionCount}</span>
@@ -511,7 +530,8 @@ function App() {
       {finished && (
         <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
           <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
-          <p className="text-gray-400 mb-6">Here's your performance summary</p>
+          <p className="text-gray-400 mb-2">Company: {company} • Role: {role}</p>
+          <p className="text-gray-400 mb-6">Topic: {topic}</p>
           <div className="bg-gray-800 rounded-2xl p-6 mb-6">
             <p className="text-gray-400 mb-2">Your Score</p>
             <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>{score}</p>
@@ -525,7 +545,7 @@ function App() {
             <p className="text-green-400 text-sm">✅ Interview saved to your history!</p>
           </div>
           <div className="mb-6">
-            {parseInt(score) >= 8 && <p className="text-green-400 font-bold">🌟 Excellent! You're interview ready!</p>}
+            {parseInt(score) >= 8 && <p className="text-green-400 font-bold">🌟 Excellent! You're ready for {company}!</p>}
             {parseInt(score) >= 5 && parseInt(score) < 8 && <p className="text-yellow-400 font-bold">👍 Good effort! Keep practicing!</p>}
             {parseInt(score) < 5 && <p className="text-red-400 font-bold">💪 Keep going! Practice makes perfect!</p>}
           </div>
