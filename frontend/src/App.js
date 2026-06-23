@@ -559,6 +559,41 @@ function App() {
           </div>
         </div>
       )}
+      {finished && (
+  <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
+    <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
+    <p className="text-gray-400 mb-2">Company: {company} • Role: {role}</p>
+    <p className="text-gray-400 mb-6">Topic: {topic}</p>
+    <div className="bg-gray-800 rounded-2xl p-6 mb-6">
+      <p className="text-gray-400 mb-2">Your Score</p>
+      <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>{score}</p>
+      <p className="text-gray-400 text-xl mt-1">/ 10</p>
+    </div>
+    <div className="bg-gray-800 rounded-2xl p-4 mb-6 text-left">
+      <p className="text-blue-400 font-bold mb-2">📝 Interviewer Feedback</p>
+      <p className="text-gray-300 text-sm leading-relaxed">{finalFeedback}</p>
+    </div>
+    <div className="mb-4 bg-gray-800 rounded-xl p-3">
+      <p className="text-green-400 text-sm">✅ Interview saved to your history!</p>
+    </div>
+    <div className="mb-6">
+      {parseInt(score) >= 8 && <p className="text-green-400 font-bold">🌟 Excellent! You're ready for {company}!</p>}
+      {parseInt(score) >= 5 && parseInt(score) < 8 && <p className="text-yellow-400 font-bold">👍 Good effort! Keep practicing!</p>}
+      {parseInt(score) < 5 && <p className="text-red-400 font-bold">💪 Keep going! Practice makes perfect!</p>}
+    </div>
+    <div className="flex gap-3 flex-wrap">
+      <button onClick={tryAgain} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
+        🔄 Try Again
+      </button>
+      <button onClick={shareScore} className="flex-1 bg-green-700 hover:bg-green-600 text-white font-bold py-3 rounded-xl transition">
+        📸 Save Score Card
+      </button>
+      <button onClick={() => { setStarted(false); tryAgain(); }} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
+        🏠 Home
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
