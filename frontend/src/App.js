@@ -232,6 +232,17 @@ function App() {
     }
   };
 
+  const endInterview = () => {
+    setTimerActive(false);
+    setStarted(false);
+    setFinished(false);
+    setMessages([]);
+    setInput("");
+    setQuestionCount(0);
+    setTimer(120);
+    setHintsUsed(0);
+  };
+
   const tryAgain = () => {
     setStarted(false);
     setFinished(false);
@@ -244,6 +255,61 @@ function App() {
     setTimerActive(false);
     setHintsUsed(0);
     setCompany("General");
+  };
+
+  const shareScore = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#111827";
+    ctx.fillRect(0, 0, 600, 400);
+
+    ctx.strokeStyle = "#3b82f6";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(10, 10, 580, 380, 20);
+    ctx.stroke();
+
+    ctx.fillStyle = "#60a5fa";
+    ctx.font = "bold 26px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Mock Interview AI", 300, 60);
+
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "16px Arial";
+    ctx.fillText(`${company} • ${role}`, 300, 95);
+
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "14px Arial";
+    ctx.fillText(`Topic: ${topic} | Difficulty: ${difficulty}`, 300, 125);
+
+    ctx.fillStyle = "#374151";
+    ctx.fillRect(150, 145, 300, 2);
+
+    const scoreNum = parseInt(score);
+    ctx.fillStyle = scoreNum >= 8 ? "#4ade80" : scoreNum >= 5 ? "#facc15" : "#f87171";
+    ctx.font = "bold 110px Arial";
+    ctx.fillText(score, 300, 265);
+
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "22px Arial";
+    ctx.fillText("out of 10", 300, 300);
+
+    ctx.fillStyle = scoreNum >= 8 ? "#4ade80" : scoreNum >= 5 ? "#facc15" : "#f87171";
+    ctx.font = "bold 16px Arial";
+    const msg = scoreNum >= 8 ? "Interview Ready!" : scoreNum >= 5 ? "Keep Practicing!" : "Need More Practice";
+    ctx.fillText(msg, 300, 335);
+
+    ctx.fillStyle = "#4b5563";
+    ctx.font = "12px Arial";
+    ctx.fillText("mock-interview-ai-eight.vercel.app", 300, 375);
+
+    const link = document.createElement("a");
+    link.download = "interview-score.png";
+    link.href = canvas.toDataURL();
+    link.click();
   };
 
   const extractScore = (text) => {
@@ -331,6 +397,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
+
       {!started && !finished && (
         <div className="w-full max-w-md">
           <div className="flex justify-between items-center mb-4">
@@ -388,11 +455,7 @@ function App() {
             )}
             <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">🏢 Company Style</label>
-              <select
-                className="w-full bg-gray-800 rounded-lg p-3 text-white"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              >
+              <select className="w-full bg-gray-800 rounded-lg p-3 text-white" value={company} onChange={(e) => setCompany(e.target.value)}>
                 <option>General</option>
                 <option>TCS</option>
                 <option>Infosys</option>
@@ -403,11 +466,7 @@ function App() {
             </div>
             <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">Role</label>
-              <select
-                className="w-full bg-gray-800 rounded-lg p-3 text-white"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
+              <select className="w-full bg-gray-800 rounded-lg p-3 text-white" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option>Backend Developer</option>
                 <option>Frontend Developer</option>
                 <option>Full Stack Developer</option>
@@ -416,11 +475,7 @@ function App() {
             </div>
             <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">Topic</label>
-              <select
-                className="w-full bg-gray-800 rounded-lg p-3 text-white"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-              >
+              <select className="w-full bg-gray-800 rounded-lg p-3 text-white" value={topic} onChange={(e) => setTopic(e.target.value)}>
                 <option>General (Mixed)</option>
                 <option>DBMS</option>
                 <option>OOPs</option>
@@ -433,11 +488,7 @@ function App() {
             </div>
             <div className="mb-6">
               <label className="text-gray-400 text-sm mb-1 block">Difficulty</label>
-              <select
-                className="w-full bg-gray-800 rounded-lg p-3 text-white"
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-              >
+              <select className="w-full bg-gray-800 rounded-lg p-3 text-white" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
                 <option>Easy</option>
                 <option>Medium</option>
                 <option>Hard</option>
@@ -465,8 +516,16 @@ function App() {
               <span className="text-white font-bold">{questionCount}</span>
               <span className="text-gray-400 text-sm">/5</span>
             </div>
-            <div className={`text-2xl font-bold ${getTimerColor()}`}>
-              ⏱ {formatTime(timer)}
+            <div className="flex items-center gap-2">
+              <div className={`text-2xl font-bold ${getTimerColor()}`}>
+                ⏱ {formatTime(timer)}
+              </div>
+              <button
+                onClick={endInterview}
+                className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm text-white"
+              >
+                ✕ End
+              </button>
             </div>
           </div>
 
@@ -549,9 +608,12 @@ function App() {
             {parseInt(score) >= 5 && parseInt(score) < 8 && <p className="text-yellow-400 font-bold">👍 Good effort! Keep practicing!</p>}
             {parseInt(score) < 5 && <p className="text-red-400 font-bold">💪 Keep going! Practice makes perfect!</p>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button onClick={tryAgain} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
               🔄 Try Again
+            </button>
+            <button onClick={shareScore} className="flex-1 bg-green-700 hover:bg-green-600 text-white font-bold py-3 rounded-xl transition">
+              📸 Save Score Card
             </button>
             <button onClick={() => { setStarted(false); tryAgain(); }} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
               🏠 Home
@@ -559,62 +621,6 @@ function App() {
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between mb-4">
-  <h1 className="text-lg font-bold text-blue-400">
-    🏢 {company} • {role}
-  </h1>
-  <div className="bg-gray-800 px-4 py-2 rounded-xl">
-    <span className="text-gray-400 text-sm">Question </span>
-    <span className="text-white font-bold">{questionCount}</span>
-    <span className="text-gray-400 text-sm">/5</span>
-  </div>
-  <div className="flex items-center gap-2">
-    <div className={`text-2xl font-bold ${getTimerColor()}`}>
-      ⏱ {formatTime(timer)}
-    </div>
-    <button
-      onClick={tryAgain}
-      className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm text-white"
-    >
-      ✕ End
-    </button>
-  </div>
-</div>
-      {finished && (
-  <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
-    <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
-    <p className="text-gray-400 mb-2">Company: {company} • Role: {role}</p>
-    <p className="text-gray-400 mb-6">Topic: {topic}</p>
-    <div className="bg-gray-800 rounded-2xl p-6 mb-6">
-      <p className="text-gray-400 mb-2">Your Score</p>
-      <p className={`text-7xl font-bold ${getScoreColor(parseInt(score))}`}>{score}</p>
-      <p className="text-gray-400 text-xl mt-1">/ 10</p>
-    </div>
-    <div className="bg-gray-800 rounded-2xl p-4 mb-6 text-left">
-      <p className="text-blue-400 font-bold mb-2">📝 Interviewer Feedback</p>
-      <p className="text-gray-300 text-sm leading-relaxed">{finalFeedback}</p>
-    </div>
-    <div className="mb-4 bg-gray-800 rounded-xl p-3">
-      <p className="text-green-400 text-sm">✅ Interview saved to your history!</p>
-    </div>
-    <div className="mb-6">
-      {parseInt(score) >= 8 && <p className="text-green-400 font-bold">🌟 Excellent! You're ready for {company}!</p>}
-      {parseInt(score) >= 5 && parseInt(score) < 8 && <p className="text-yellow-400 font-bold">👍 Good effort! Keep practicing!</p>}
-      {parseInt(score) < 5 && <p className="text-red-400 font-bold">💪 Keep going! Practice makes perfect!</p>}
-    </div>
-    <div className="flex gap-3 flex-wrap">
-      <button onClick={tryAgain} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">
-        🔄 Try Again
-      </button>
-      <button onClick={shareScore} className="flex-1 bg-green-700 hover:bg-green-600 text-white font-bold py-3 rounded-xl transition">
-        📸 Save Score Card
-      </button>
-      <button onClick={() => { setStarted(false); tryAgain(); }} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
-        🏠 Home
-      </button>
-    </div>
-  </div>
-)}
     </div>
   );
 }
