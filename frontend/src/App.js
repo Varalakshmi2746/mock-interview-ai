@@ -241,6 +241,8 @@ function App() {
     setQuestionCount(0);
     setTimer(120);
     setHintsUsed(0);
+    setFinalFeedback("");
+    setError("");
   };
 
   const tryAgain = () => {
@@ -398,6 +400,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
 
+      {/* Setup Screen */}
       {!started && !finished && (
         <div className="w-full max-w-md">
           <div className="flex justify-between items-center mb-4">
@@ -505,6 +508,7 @@ function App() {
         </div>
       )}
 
+      {/* Interview Screen */}
       {started && !finished && (
         <div className="w-full max-w-2xl flex flex-col h-screen py-4">
           <div className="flex items-center justify-between mb-4">
@@ -522,7 +526,7 @@ function App() {
               </div>
               <button
                 onClick={endInterview}
-                className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm text-white"
+                className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm text-white font-bold"
               >
                 ✕ End
               </button>
@@ -586,6 +590,7 @@ function App() {
         </div>
       )}
 
+      {/* Score Screen */}
       {finished && (
         <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
           <h1 className="text-3xl font-bold mb-2 text-blue-400">🏆 Interview Complete!</h1>
