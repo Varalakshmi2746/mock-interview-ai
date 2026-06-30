@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
+import ProgressChart from "./ProgressChart";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -422,28 +423,66 @@ function App() {
           </div>
 
           {showHistory && (
-            <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-64 overflow-y-auto">
-              <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
-              {history.length === 0 ? (
-                <p className="text-gray-400 text-sm">No interviews yet!</p>
-              ) : (
-                history.map((h, i) => (
-                  <div key={i} className="bg-gray-800 rounded-xl p-3 mb-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-300">{h.role} • {h.difficulty}</span>
-                      <span className={`font-bold text-lg ${getScoreColor(parseInt(h.score))}`}>
-                        {h.score}/10
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-xs mt-1">
-                      {new Date(h.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+            <>
+              <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-96 overflow-y-auto">
+                <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
 
+                {history.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-gray-800 rounded-xl p-3 text-center">
+                      <p className="text-gray-400 text-xs">Total</p>
+                      <p className="text-blue-400 font-bold text-xl">{history.length}</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-xl p-3 text-center">
+                      <p className="text-gray-400 text-xs">Average</p>
+                      <p className="text-yellow-400 font-bold text-xl">
+                        {(history.filter(h => h.score !== "?").reduce((sum, h) => sum + parseInt(h.score), 0) /
+                          (history.filter(h => h.score !== "?").length || 1)).toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-800 rounded-xl p-3 text-center">
+                      <p className="text-gray-400 text-xs">Best</p>
+                      <p className="text-green-400 font-bold text-xl">
+                        {Math.max(...history.filter(h => h.score !== "?").map(h => parseInt(h.score)), 0)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {history.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No interviews yet!</p>
+                ) : (
+                  history.map((h, i) => (
+                    <div key={i} className="bg-gray-800 rounded-xl p-3 mb-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-300">{h.role} • {h.difficulty}</span>
+                        <span className={`font-bold text-lg ${getScoreColor(parseInt(h.score))}`}>
+                          {h.score}/10
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            parseInt(h.score) >= 8 ? "bg-green-500" :
+                            parseInt(h.score) >= 5 ? "bg-yellow-500" : "bg-red-500"
+                          }`}
+                          style={{ width: `${h.score !== "?" ? parseInt(h.score) * 10 : 0}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-gray-500 text-xs mt-1">
+                        {new Date(h.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Progress Chart */}
+              <div className="mt-6">
+                <ProgressChart history={history} />
+              </div>
+            </>
+          )}
           <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl">
             <h1 className="text-3xl font-bold text-center mb-2 text-blue-400">
               🎯 Mock Interview AI
