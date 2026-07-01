@@ -2,7 +2,7 @@
 
 ### AI-Powered Technical Interview Simulator for CS Students
 
-![Mock Interview AI Demo](C:\Users\HP\Desktop\mock-interview-ai\frontend\src\Demo.png)
+![Mock Interview AI Demo](Demo.png)
 
 ## 🔗 Links
 - 🌐 Live Demo: https://mock-interview-ai-eight.vercel.app
