@@ -26,6 +26,7 @@ function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
