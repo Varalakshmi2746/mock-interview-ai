@@ -19,7 +19,6 @@ app.add_middleware(
 )
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
-
 conversation_history = []
 
 class UserMessage(BaseModel):
@@ -31,36 +30,11 @@ class UserMessage(BaseModel):
 
 COMPANY_STYLES = {
     "General": "Ask general technical questions suitable for any software company.",
-    "TCS": """You are a TCS interviewer. TCS interview style:
-    - Focus on basic CS fundamentals (OOPs, DBMS, OS, Networks)
-    - Ask about projects and internships
-    - Simple coding questions
-    - HR questions about teamwork and adaptability
-    - Questions about TCS values and culture fit""",
-    "Infosys": """You are an Infosys interviewer. Infosys interview style:
-    - Focus on aptitude and logical reasoning concepts
-    - Basic programming and data structures
-    - Ask about academic projects
-    - Questions about problem solving approach
-    - Behavioral questions about work ethics""",
-    "Wipro": """You are a Wipro interviewer. Wipro interview style:
-    - Core CS subjects focus
-    - Basic coding and algorithms
-    - Ask about final year project
-    - Communication skills assessment
-    - Questions about flexibility and learning ability""",
-    "Accenture": """You are an Accenture interviewer. Accenture interview style:
-    - Mix of technical and soft skills
-    - Focus on communication and presentation
-    - Basic technical questions
-    - Case study approach
-    - Questions about innovation and creativity""",
-    "Product Company": """You are a product company interviewer. Style:
-    - Deep technical questions
-    - Complex DSA and algorithms
-    - System design questions
-    - Problem solving approach matters
-    - Focus on optimization and scalability""",
+    "TCS": "Focus on basic CS fundamentals, projects, simple coding, HR questions about teamwork.",
+    "Infosys": "Focus on aptitude concepts, basic programming, academic projects, problem solving.",
+    "Wipro": "Core CS subjects, basic coding, final year project, communication skills.",
+    "Accenture": "Mix of technical and soft skills, communication, basic technical, creativity.",
+    "Product Company": "Deep technical, complex DSA, system design, optimization, scalability.",
 }
 
 def ask_ai(messages):
@@ -71,7 +45,7 @@ def ask_ai(messages):
             "Content-Type": "application/json"
         },
         data=json.dumps({
-            "model": "openrouter/auto",
+            "model": "google/gemini-2.0-flash-exp:free",
             "messages": messages
         })
     )
@@ -89,65 +63,11 @@ async def start_interview(data: UserMessage):
 
     company_style = COMPANY_STYLES.get(data.company, COMPANY_STYLES["General"])
 
-    system_prompt = f"""You are a strict but encouraging technical interviewer
-    for {data.company} company interviewing for {data.role} role.
-    Difficulty: {data.difficulty}.
-    Topic Focus: {data.topic}.
-    
-    Company Interview Style:
-    {company_style}
-    
-    Rules:
-    - Ask ONE question at a time
-    - Questions must match {data.company} interview style
-    - Questions must be related to {data.topic}
-    - After candidate answers give brief feedback
-    - Then ask next question
-    - Ask total 5 questions only
-    - After 5 questions say INTERVIEW COMPLETE and give final score out of 10
-    - In final feedback mention if candidate is ready for {data.company}"""
-
-    conversation_history.append({
-        "role": "system",
-        "content": system_prompt
-    })
-
-    conversation_history.append({
-        "role": "user",
-        "content": f"I am ready. Please start my {data.company} {data.role} interview."
-    })
-
-    ai_response = ask_ai(conversation_history)
-
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {"question": ai_response}
-
-@app.post("/submit-answer")
-async def submit_answer(data: UserMessage):
-    global conversation_history
-
-    conversation_history.append({
-        "role": "user",
-        "content": data.message
-    })
-
-    ai_response = ask_ai(conversation_history)
-
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {"response": ai_response}
-    system_prompt = f"""You are a strict technical interviewer for {data.company}.
+    system_prompt = f"""You are a strict technical interviewer for {data.company} company.
 Role: {data.role}
 Difficulty: {data.difficulty}
 Topic: {data.topic}
-
+Style: {company_style}
 STRICT RULES:
 - Ask EXACTLY 5 questions total - no more
 - Number each question (Question 1, 2, 3, 4, 5)
