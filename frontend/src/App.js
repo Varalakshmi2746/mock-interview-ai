@@ -14,6 +14,7 @@ function App() {
   const [topic, setTopic] = useState("General (Mixed)");
   const [company, setCompany] = useState("General");
   const [error, setError] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [finalFeedback, setFinalFeedback] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
   const [timer, setTimer] = useState(120);
@@ -26,7 +27,6 @@ function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,6 +35,11 @@ function App() {
     supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
+  }, []);
+
+  // Wake up backend silently on page load (Render free tier sleeps after inactivity)
+  useEffect(() => {
+    fetch("https://mock-interview-ai-hr52.onrender.com").catch(() => {});
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,6 +169,7 @@ function App() {
     }
   };
 
+  // Start interview with retry logic (handles Render free-tier cold start)
   const startInterview = async () => {
     setLoading(true);
     setError("");
@@ -173,24 +179,42 @@ function App() {
     setTimer(120);
     setHintsUsed(0);
     setShowHistory(false);
-    try {
-      const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/start-interview",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "start", role, difficulty, topic, company }),
+    setLoadingMessage("Starting interview...");
+
+    const tryConnect = async (attempt) => {
+      try {
+        setLoadingMessage(
+          attempt === 1
+            ? "🔄 Connecting to server..."
+            : `⏳ Server waking up... attempt ${attempt}/3`
+        );
+        const res = await fetch(
+          "https://mock-interview-ai-hr52.onrender.com/start-interview",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: "start", role, difficulty, topic, company }),
+          }
+        );
+        const data = await res.json();
+        setMessages([{ from: "ai", text: data.question }]);
+        setStarted(true);
+        setTimerActive(true);
+        setLoadingMessage("");
+      } catch (err) {
+        if (attempt < 3) {
+          setLoadingMessage(`⏳ Server starting... waiting 20 seconds (${attempt}/3)`);
+          await new Promise((r) => setTimeout(r, 20000));
+          await tryConnect(attempt + 1);
+        } else {
+          setError("Backend connect avvatledu! Please try again.");
+          setLoadingMessage("");
         }
-      );
-      const data = await res.json();
-      setMessages([{ from: "ai", text: data.question }]);
-      setStarted(true);
-      setTimerActive(true);
-    } catch (err) {
-      setError("Backend connect avvatledu!");
-    } finally {
-      setLoading(false);
-    }
+      }
+    };
+
+    await tryConnect(1);
+    setLoading(false);
   };
 
   const submitAnswer = async () => {
@@ -537,6 +561,17 @@ function App() {
             >
               {loading ? "Starting..." : "Start Interview 🚀"}
             </button>
+
+            {loadingMessage && (
+              <div className="mt-3 text-center">
+                <p className="text-yellow-400 text-sm animate-pulse">
+                  {loadingMessage}
+                </p>
+                <p className="text-gray-500 text-xs mt-1">
+                  Free server takes 30-60 sec to wake up
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
