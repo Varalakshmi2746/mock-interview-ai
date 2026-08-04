@@ -83,8 +83,7 @@ function App() {
       );
       const data = await res.json();
       console.log("Backend Response:", data);
-      alert(JSON.stringify(data));
-      const aiText = data.response;
+      const aiText = data.response || data.question || "";
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
       setStarted(true);
       setTimerActive(true);
@@ -155,7 +154,7 @@ function App() {
         }
       );
       const data = await res.json();
-      setMessages((prev) => [...prev, { from: "hint", text: data.response }]);
+      setMessages((prev) => [...prev, { from: "hint", text: data.response || data.question || "" }]);
       setHintsUsed((h) => h + 1);
       setTimerActive(true);
     } catch (err) {
@@ -184,7 +183,14 @@ function App() {
         }
       );
       const data = await res.json();
-      setMessages([{ from: "ai", text: data.question }]);
+      console.log("start-interview response:", data);
+      // Backend may return the question under "question" or "response" —
+      // this covers both so the bubble is never blank.
+      const firstQuestion = data.question || data.response || "";
+      if (!firstQuestion) {
+        setError("Backend didn't return a question. Check console for the raw response.");
+      }
+      setMessages([{ from: "ai", text: firstQuestion }]);
       setStarted(true);
       setTimerActive(true);
     } catch (err) {
@@ -211,7 +217,7 @@ function App() {
         }
       );
       const data = await res.json();
-      const aiText = data.response;
+      const aiText = data.response || data.question || "";
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
       if (aiText.toLowerCase().includes("interview complete") ||
           aiText.toLowerCase().includes("final score") ||

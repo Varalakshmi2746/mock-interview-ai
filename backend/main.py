@@ -22,6 +22,7 @@ app.add_middleware(
 
 conversation_history = []
 
+
 class UserMessage(BaseModel):
     message: str
     role: str
@@ -46,10 +47,14 @@ def ask_ai(messages):
         headers={
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://mock-interview-ai.onrender.com",
+            "X-Title": "Mock Interview AI",
         },
         json={
-            "model": "openrouter/auto",
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
             "messages": messages,
+            "max_tokens": 300,
+            "temperature": 0.7,
         },
     )
 
@@ -81,15 +86,13 @@ async def start_interview(data: UserMessage):
 
     conversation_history = []
 
-    company_style = COMPANY_STYLES.get(
-        data.company,
-        COMPANY_STYLES["General"]
-    )
+    company_style = COMPANY_STYLES.get(data.company, COMPANY_STYLES["General"])
 
     system_prompt = f"""
 You are a strict technical interviewer.
 
 Company: {data.company}
+Company interview style: {company_style}
 Role: {data.role}
 Difficulty: {data.difficulty}
 Topic: {data.topic}
@@ -103,48 +106,24 @@ Instructions:
 - After question 5, give final score out of 10.
 """
 
-    conversation_history.append({
-        "role": "system",
-        "content": system_prompt
-    })
+    conversation_history.append({"role": "system", "content": system_prompt})
+    conversation_history.append({"role": "user", "content": "Start the interview."})
 
-    conversation_history.append({
-        "role": "user",
-        "content": "Start the interview."
-    })
+    ai_reply = ask_ai(conversation_history)
 
-    ai_response = ask_ai(conversation_history)
+    conversation_history.append({"role": "assistant", "content": ai_reply})
 
-    print("AI RESPONSE =", repr(ai_response))
-
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {
-        "question": ai_response
-    }
+    return {"question": ai_reply}
 
 
 @app.post("/submit-answer")
 async def submit_answer(data: UserMessage):
     global conversation_history
 
-    conversation_history.append({
-        "role": "user",
-        "content": data.message
-    })
+    conversation_history.append({"role": "user", "content": data.message})
 
-    ai_response = ask_ai(conversation_history)
+    ai_reply = ask_ai(conversation_history)
 
-    print("AI RESPONSE =", repr(ai_response))
+    conversation_history.append({"role": "assistant", "content": ai_reply})
 
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {
-        "response": ai_response
-    }
+    return {"response": ai_reply}
