@@ -36,7 +36,6 @@ COMPANY_STYLES = {
     "Accenture": "Mix of technical and soft skills, communication, basic technical, creativity.",
     "Product Company": "Deep technical, complex DSA, system design, optimization, scalability.",
 }
-
 def ask_ai(messages):
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
@@ -44,73 +43,21 @@ def ask_ai(messages):
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         },
-        data=json.dumps({
+        json={
             "model": "openrouter/auto",
             "messages": messages
-        })
+        }
     )
-    result = response.json()
+
     print("Status Code:", response.status_code)
-    print("OpenRouter Response:", result)
+    print("Response Text:", response.text)
+
+    result = response.json()
+
+    if response.status_code != 200:
+        return f"OpenRouter Error: {result}"
+
+    if "choices" not in result:
+        return f"Unexpected Response: {result}"
+
     return result["choices"][0]["message"]["content"]
-
-@app.get("/")
-async def root():
-    return {"message": "Mock Interview AI Backend Running!"}
-
-@app.post("/start-interview")
-async def start_interview(data: UserMessage):
-    global conversation_history
-    conversation_history = []
-
-    company_style = COMPANY_STYLES.get(data.company, COMPANY_STYLES["General"])
-
-    system_prompt = f"""You are a strict technical interviewer for {data.company} company.
-Role: {data.role}
-Difficulty: {data.difficulty}
-Topic: {data.topic}
-Style: {company_style}
-
-STRICT RULES:
-- Ask EXACTLY 5 questions numbered Question 1 to Question 5
-- After each answer give brief feedback (2-3 lines max)
-- After Question 5 answer write INTERVIEW COMPLETE and give final score out of 10
-- Do not ask questions outside the specified topic
-- Do not ask Question 6 or beyond"""
-
-    conversation_history.append({
-        "role": "system",
-        "content": system_prompt
-    })
-
-    conversation_history.append({
-        "role": "user",
-        "content": f"I am ready. Please start my {data.company} {data.role} interview."
-    })
-
-    ai_response = ask_ai(conversation_history)
-
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {"question": ai_response}
-
-@app.post("/submit-answer")
-async def submit_answer(data: UserMessage):
-    global conversation_history
-
-    conversation_history.append({
-        "role": "user",
-        "content": data.message
-    })
-
-    ai_response = ask_ai(conversation_history)
-
-    conversation_history.append({
-        "role": "assistant",
-        "content": ai_response
-    })
-
-    return {"response": ai_response}
