@@ -45,7 +45,7 @@ def ask_ai(messages):
             "Content-Type": "application/json"
         },
         data=json.dumps({
-            "model": "google/gemini-2.0-flash-exp:free",
+            "model": "openrouter/auto",
             "messages": messages
         })
     )
@@ -68,9 +68,47 @@ Role: {data.role}
 Difficulty: {data.difficulty}
 Topic: {data.topic}
 Style: {company_style}
+
 STRICT RULES:
-- Ask EXACTLY 5 questions total - no more
-- Number each question (Question 1, 2, 3, 4, 5)
-- After question 5 answer → immediately say INTERVIEW COMPLETE
-- Give final score out of 10
-- Do NOT ask question 6 or beyond"""
+- Ask EXACTLY 5 questions numbered Question 1 to Question 5
+- After each answer give brief feedback (2-3 lines max)
+- After Question 5 answer write INTERVIEW COMPLETE and give final score out of 10
+- Do not ask questions outside the specified topic
+- Do not ask Question 6 or beyond"""
+
+    conversation_history.append({
+        "role": "system",
+        "content": system_prompt
+    })
+
+    conversation_history.append({
+        "role": "user",
+        "content": f"I am ready. Please start my {data.company} {data.role} interview."
+    })
+
+    ai_response = ask_ai(conversation_history)
+
+    conversation_history.append({
+        "role": "assistant",
+        "content": ai_response
+    })
+
+    return {"question": ai_response}
+
+@app.post("/submit-answer")
+async def submit_answer(data: UserMessage):
+    global conversation_history
+
+    conversation_history.append({
+        "role": "user",
+        "content": data.message
+    })
+
+    ai_response = ask_ai(conversation_history)
+
+    conversation_history.append({
+        "role": "assistant",
+        "content": ai_response
+    })
+
+    return {"response": ai_response}
