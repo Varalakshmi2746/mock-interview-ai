@@ -74,7 +74,7 @@ function App() {
     setLoading(true);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        "http://127.0.0.1:8000/submit-answer",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -143,7 +143,7 @@ function App() {
     setTimerActive(false);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        "http://127.0.0.1:8000/submit-answer",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -175,7 +175,7 @@ function App() {
     setShowHistory(false);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/start-interview",
+        "http://127.0.0.1:8000/start-interview",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -209,7 +209,7 @@ function App() {
     setHintsUsed(0);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        "http://127.0.0.1:8000/submit-answer",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
