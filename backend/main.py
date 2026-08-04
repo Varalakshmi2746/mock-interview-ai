@@ -50,6 +50,8 @@ def ask_ai(messages):
         })
     )
     result = response.json()
+    print("Status Code:", response.status_code)
+    print("OpenRouter Response:", result)
     return result["choices"][0]["message"]["content"]
 
 @app.get("/")
