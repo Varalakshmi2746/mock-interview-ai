@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 
 function App() {
   const [user, setUser] = useState(null);
+  const [darkMode, setDarkMode] = useState(true);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -26,7 +27,6 @@ function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -82,12 +82,13 @@ function App() {
         }
       );
       const data = await res.json();
+      console.log("Backend Response:", data);
+      alert(JSON.stringify(data));
       const aiText = data.response;
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
-      setQuestionCount((q) => q + 1);
-      setTimer(120);
+      setStarted(true);
       setTimerActive(true);
-      setHintsUsed(0);
+
       if (aiText.toLowerCase().includes("interview complete") ||
           aiText.toLowerCase().includes("final score")) {
         setFinalFeedback(aiText);
@@ -399,33 +400,35 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center p-4">
-      <div className="flex justify-between items-center mb-4 w-full max-w-2xl">
-        <p className="text-gray-400 text-sm">👋 {user.email}</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm"
-          >
-            {darkMode ? "☀️" : "🌙"}
-          </button>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm"
-          >
-            📋 History
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
 
+      {/* Setup Screen */}
       {!started && !finished && (
         <div className="w-full max-w-md">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-gray-400 text-sm">👋 {user.email}</p>
+            <div className="flex gap-2">
+              <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm"
+              >
+                {darkMode ? "☀️" : "🌙"}
+                </button>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm"
+              >
+                📋 History
+              </button>
+              <button
+                onClick={handleLogout}
+                className="bg-red-800 hover:bg-red-700 px-3 py-1 rounded-lg text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
           {showHistory && (
             <div className="bg-gray-900 rounded-2xl p-4 mb-4 max-h-96 overflow-y-auto">
               <h2 className="text-blue-400 font-bold mb-3">📋 Past Interviews</h2>
