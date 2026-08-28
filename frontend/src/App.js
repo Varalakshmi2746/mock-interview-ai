@@ -85,17 +85,29 @@ function App() {
       console.log("Backend Response:", data);
       const aiText = data.response || data.question || "";
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
-      setStarted(true);
-      setTimerActive(true);
+      const lower = aiText.toLowerCase();
+      const isFinished =
+        questionCount >= 5 ||
+        lower.includes("interview complete") ||
+        lower.includes("final score") ||
+        lower.includes("overall score") ||
+        lower.includes("score:") ||
+        /(\d+)\s*(?:\/|out of)\s*10/i.test(aiText);
 
-      if (aiText.toLowerCase().includes("interview complete") ||
-          aiText.toLowerCase().includes("final score")) {
+      if (isFinished) {
         setFinalFeedback(aiText);
         setTimerActive(false);
-        const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
-        const s = scoreMatch ? scoreMatch[1] : "?";
+        const matchSlash = aiText.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
+        const s = matchSlash ? Math.round(parseFloat(matchSlash[1])).toString() : "6";
         await saveInterview(s, aiText);
-        setTimeout(() => setFinished(true), 2000);
+        setTimeout(() => {
+          setFinished(true);
+          setStarted(false);
+        }, 1500);
+      } else {
+        setQuestionCount((q) => q + 1);
+        setTimer(120);
+        setTimerActive(true);
       }
     } catch (err) {
       console.error(err);
@@ -200,6 +212,16 @@ function App() {
     }
   };
 
+  const extractScore = (text) => {
+    if (!text) return "?";
+    const matchSlash = text.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
+    if (matchSlash) return Math.round(parseFloat(matchSlash[1])).toString();
+    const matchScoreWord = text.match(/score\s*:\s*(\d+)/i);
+    if (matchScoreWord) return matchScoreWord[1];
+    const match = text.match(/(\d+)\s*\/\s*10/);
+    return match ? match[1] : "?";
+  };
+
   const submitAnswer = async () => {
     if (!input.trim()) return;
     setTimerActive(false);
@@ -219,15 +241,24 @@ function App() {
       const data = await res.json();
       const aiText = data.response || data.question || "";
       setMessages((prev) => [...prev, { from: "ai", text: aiText }]);
-      if (aiText.toLowerCase().includes("interview complete") ||
-          aiText.toLowerCase().includes("final score") ||
-          aiText.toLowerCase().includes("overall score")) {
+      const lower = aiText.toLowerCase();
+      const isFinished =
+        questionCount >= 5 ||
+        lower.includes("interview complete") ||
+        lower.includes("final score") ||
+        lower.includes("overall score") ||
+        lower.includes("score:") ||
+        /(\d+)\s*(?:\/|out of)\s*10/i.test(aiText);
+
+      if (isFinished) {
         setFinalFeedback(aiText);
         setTimerActive(false);
-        const scoreMatch = aiText.match(/(\d+)\s*\/\s*10/);
-        const s = scoreMatch ? scoreMatch[1] : "?";
-        await saveInterview(s, aiText);
-        setTimeout(() => setFinished(true), 2000);
+        const s = extractScore(aiText);
+        await saveInterview(s !== "?" ? s : "7", aiText);
+        setTimeout(() => {
+          setFinished(true);
+          setStarted(false);
+        }, 1500);
       } else {
         setQuestionCount((q) => q + 1);
         setTimer(120);
@@ -240,17 +271,27 @@ function App() {
     }
   };
 
-  const endInterview = () => {
+  const endInterview = async () => {
     setTimerActive(false);
-    setStarted(false);
-    setFinished(false);
-    setMessages([]);
-    setInput("");
-    setQuestionCount(0);
-    setTimer(120);
-    setHintsUsed(0);
-    setFinalFeedback("");
-    setError("");
+    if (messages.length > 1) {
+      const answered = Math.min(5, Math.max(1, questionCount));
+      const calculatedScore = Math.max(1, Math.min(10, Math.round((answered / 5) * 8))).toString();
+      const feedbackText = `Interview ended early at Question ${answered}/5.\n\nFinal Score: ${calculatedScore}/10\n\nPracticed ${answered} technical questions for ${role}.`;
+      setFinalFeedback(feedbackText);
+      await saveInterview(calculatedScore, feedbackText);
+      setFinished(true);
+      setStarted(false);
+    } else {
+      setStarted(false);
+      setFinished(false);
+      setMessages([]);
+      setInput("");
+      setQuestionCount(0);
+      setTimer(120);
+      setHintsUsed(0);
+      setFinalFeedback("");
+      setError("");
+    }
   };
 
   const tryAgain = () => {

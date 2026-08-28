@@ -167,11 +167,7 @@ async def submit_answer(data: UserMessage):
         conversation_history.append({
             "role": "system",
             "content": """
-The interview is now complete.
-
-Do NOT ask another question.
-
-Give:
+The interview is now complete. Say "INTERVIEW COMPLETE" and give:
 
 Final Score: X/10
 
