@@ -535,6 +535,7 @@ function App() {
               <label className="text-gray-400 text-sm mb-1 block">🏢 Company Style</label>
               <select className="w-full bg-gray-800 rounded-lg p-3 text-white" value={company} onChange={(e) => setCompany(e.target.value)}>
                 <option>General</option>
+                <option>Amazon</option>
                 <option>TCS</option>
                 <option>Infosys</option>
                 <option>Wipro</option>

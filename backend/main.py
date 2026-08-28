@@ -48,6 +48,7 @@ class UserMessage(BaseModel):
 # -------------------------
 COMPANY_STYLES = {
     "General": "General technical interview.",
+    "Amazon": "Focus on Amazon Leadership Principles, scalable distributed systems, high-performance DSA, and backend architecture.",
     "TCS": "Focus on CS fundamentals and simple coding.",
     "Infosys": "Focus on aptitude, basics and projects.",
     "Wipro": "Focus on core CS and communication.",
