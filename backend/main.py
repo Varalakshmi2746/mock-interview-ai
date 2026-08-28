@@ -59,7 +59,7 @@ def ask_ai(messages):
         return "GROQ_API_KEY is not set in Render environment variables. Please add GROQ_API_KEY in Render Dashboard."
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="qwen/qwen3.8-27b",
             messages=messages,
             temperature=0.5,
             max_tokens=150
