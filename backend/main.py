@@ -12,10 +12,7 @@ load_dotenv()
 
 API_KEY = os.getenv("GROQ_API_KEY")
 
-if not API_KEY:
-    raise Exception("GROQ_API_KEY not found in .env")
-
-client = Groq(api_key=API_KEY)
+client = Groq(api_key=API_KEY) if API_KEY else None
 
 # -------------------------
 # FastAPI
