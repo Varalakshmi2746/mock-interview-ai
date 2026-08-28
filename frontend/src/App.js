@@ -53,17 +53,21 @@ function App() {
   }, [user, fetchHistory]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const saveInterview = useCallback(async (score, feedback) => {
+  const saveInterview = useCallback(async (scoreVal, feedbackVal) => {
     if (!user) return;
-    await supabase.from("interviews").insert([{
-      user_id: user.id,
-      user_email: user.email,
-      role: role,
-      difficulty: difficulty,
-      score: score,
-      feedback: feedback,
-    }]);
-    fetchHistory();
+    try {
+      await supabase.from("interviews").insert([{
+        user_id: user.id,
+        user_email: user.email,
+        role: role,
+        difficulty: difficulty,
+        score: scoreVal ? scoreVal.toString() : "7",
+        feedback: feedbackVal || "",
+      }]);
+      await fetchHistory();
+    } catch (e) {
+      console.error("Save interview error:", e);
+    }
   }, [user, role, difficulty, fetchHistory]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,19 +217,20 @@ function App() {
   };
 
   const extractScore = (text) => {
-    if (!text) return "?";
+    if (!text) return "7";
     const matchSlash = text.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
     if (matchSlash) return Math.round(parseFloat(matchSlash[1])).toString();
     const matchScoreWord = text.match(/score\s*:\s*(\d+)/i);
     if (matchScoreWord) return matchScoreWord[1];
     const match = text.match(/(\d+)\s*\/\s*10/);
-    return match ? match[1] : "?";
+    return match ? match[1] : "7";
   };
 
   const submitAnswer = async () => {
     if (!input.trim()) return;
     setTimerActive(false);
-    setMessages((prev) => [...prev, { from: "user", text: input }]);
+    const userMsg = input;
+    setMessages((prev) => [...prev, { from: "user", text: userMsg }]);
     setInput("");
     setLoading(true);
     setHintsUsed(0);
@@ -235,7 +240,7 @@ function App() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: input, role, difficulty, topic, company }),
+          body: JSON.stringify({ message: userMsg, role, difficulty, topic, company }),
         }
       );
       const data = await res.json();
@@ -254,17 +259,16 @@ function App() {
         setFinalFeedback(aiText);
         setTimerActive(false);
         const s = extractScore(aiText);
-        await saveInterview(s !== "?" ? s : "7", aiText);
-        setTimeout(() => {
-          setFinished(true);
-          setStarted(false);
-        }, 1500);
+        await saveInterview(s, aiText);
+        setFinished(true);
+        setStarted(false);
       } else {
         setQuestionCount((q) => q + 1);
         setTimer(120);
         setTimerActive(true);
       }
     } catch (err) {
+      console.error(err);
       setError("Something went wrong!");
     } finally {
       setLoading(false);
@@ -273,25 +277,13 @@ function App() {
 
   const endInterview = async () => {
     setTimerActive(false);
-    if (messages.length > 1) {
-      const answered = Math.min(5, Math.max(1, questionCount));
-      const calculatedScore = Math.max(1, Math.min(10, Math.round((answered / 5) * 8))).toString();
-      const feedbackText = `Interview ended early at Question ${answered}/5.\n\nFinal Score: ${calculatedScore}/10\n\nPracticed ${answered} technical questions for ${role}.`;
-      setFinalFeedback(feedbackText);
-      await saveInterview(calculatedScore, feedbackText);
-      setFinished(true);
-      setStarted(false);
-    } else {
-      setStarted(false);
-      setFinished(false);
-      setMessages([]);
-      setInput("");
-      setQuestionCount(0);
-      setTimer(120);
-      setHintsUsed(0);
-      setFinalFeedback("");
-      setError("");
-    }
+    const answered = Math.min(5, Math.max(1, questionCount));
+    const calculatedScore = Math.max(1, Math.min(10, Math.round((answered / 5) * 8))).toString();
+    const feedbackText = `Interview completed at Question ${answered}/5.\n\nFinal Score: ${calculatedScore}/10\n\nPracticed ${answered} technical question(s) for ${role}.`;
+    setFinalFeedback(feedbackText);
+    await saveInterview(calculatedScore, feedbackText);
+    setFinished(true);
+    setStarted(false);
   };
 
   const tryAgain = () => {
@@ -306,6 +298,7 @@ function App() {
     setTimerActive(false);
     setHintsUsed(0);
     setCompany("General");
+    fetchHistory();
   };
 
   const shareScore = () => {
@@ -361,11 +354,6 @@ function App() {
     link.download = "interview-score.png";
     link.href = canvas.toDataURL();
     link.click();
-  };
-
-  const extractScore = (text) => {
-    const match = text.match(/(\d+)\s*\/\s*10/);
-    return match ? match[1] : "?";
   };
 
   const getScoreColor = (score) => {
