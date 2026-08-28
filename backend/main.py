@@ -55,6 +55,8 @@ COMPANY_STYLES = {
 # AI Function
 # -------------------------
 def ask_ai(messages):
+    if not client:
+        return "GROQ_API_KEY is not set in Render environment variables. Please add GROQ_API_KEY in Render Dashboard."
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -67,7 +69,7 @@ def ask_ai(messages):
 
     except Exception as e:
         print("Groq Error:", e)
-        return "Sorry, something went wrong."
+        return f"Groq Error: {str(e)}"
 
 # -------------------------
 # Root API
