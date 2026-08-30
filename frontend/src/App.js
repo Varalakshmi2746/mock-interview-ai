@@ -118,7 +118,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [role, difficulty, topic, company, saveInterview]);
+  }, [role, difficulty, topic, company, saveInterview, questionCount]);
 
   useEffect(() => {
     let interval = null;
