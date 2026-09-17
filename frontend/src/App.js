@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://mock-interview-ai-hr52.onrender.com";
+
+const extractScore = (text) => {
+  if (!text) return "7";
+  const matchSlash = text.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
+  if (matchSlash) return Math.round(parseFloat(matchSlash[1])).toString();
+  const matchScoreWord = text.match(/score\s*:\s*(\d+)/i);
+  if (matchScoreWord) return matchScoreWord[1];
+  const match = text.match(/(\d+)\s*\/\s*10/);
+  return match ? match[1] : "7";
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
@@ -29,23 +41,59 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    try {
+      const savedGuest = localStorage.getItem("mock_guest_user");
+      if (savedGuest) {
+        setUser(JSON.parse(savedGuest));
+      }
+    } catch (e) {}
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser(session.user);
+        }
+      })
+      .catch((err) => {
+        console.warn("Supabase getSession error:", err);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
     });
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchHistory = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("interviews")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setHistory(data || []);
+    try {
+      const { data, error } = await supabase
+        .from("interviews")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setHistory(data);
+        return;
+      }
+    } catch (e) {
+      console.warn("Supabase fetchHistory fallback:", e);
+    }
+    try {
+      const local = JSON.parse(localStorage.getItem(`mock_history_${user.id}`) || "[]");
+      setHistory(local);
+    } catch (e) {
+      setHistory([]);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -55,18 +103,33 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const saveInterview = useCallback(async (scoreVal, feedbackVal) => {
     if (!user) return;
+    const record = {
+      user_id: user.id,
+      user_email: user.email,
+      role: role,
+      difficulty: difficulty,
+      score: scoreVal ? scoreVal.toString() : "7",
+      feedback: feedbackVal || "",
+      created_at: new Date().toISOString(),
+    };
+    let savedToSupabase = false;
     try {
-      await supabase.from("interviews").insert([{
-        user_id: user.id,
-        user_email: user.email,
-        role: role,
-        difficulty: difficulty,
-        score: scoreVal ? scoreVal.toString() : "7",
-        feedback: feedbackVal || "",
-      }]);
-      await fetchHistory();
+      const { error } = await supabase.from("interviews").insert([record]);
+      if (!error) {
+        savedToSupabase = true;
+        await fetchHistory();
+      }
     } catch (e) {
-      console.error("Save interview error:", e);
+      console.warn("Supabase saveInterview fallback:", e);
+    }
+    if (!savedToSupabase) {
+      try {
+        const key = `mock_history_${user.id}`;
+        const local = JSON.parse(localStorage.getItem(key) || "[]");
+        local.unshift(record);
+        localStorage.setItem(key, JSON.stringify(local));
+        setHistory(local);
+      } catch (e) {}
     }
   }, [user, role, difficulty, fetchHistory]);
 
@@ -78,7 +141,7 @@ function App() {
     setLoading(true);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        `${API_BASE_URL}/submit-answer`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,8 +164,7 @@ function App() {
       if (isFinished) {
         setFinalFeedback(aiText);
         setTimerActive(false);
-        const matchSlash = aiText.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
-        const s = matchSlash ? Math.round(parseFloat(matchSlash[1])).toString() : "6";
+        const s = extractScore(aiText);
         await saveInterview(s, aiText);
         setTimeout(() => {
           setFinished(true);
@@ -136,19 +198,51 @@ function App() {
     try {
       if (authMode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) setAuthError(error.message);
+        if (error) {
+          if (error.message === "Failed to fetch") {
+            setAuthError("Failed to connect to Supabase database. If your Supabase project is paused, please unpause/restore it in the Supabase dashboard.");
+          } else {
+            setAuthError(error.message);
+          }
+        }
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
-        if (error) setAuthError(error.message);
-        else setAuthError("Check your email to confirm signup!");
+        if (error) {
+          if (error.message === "Failed to fetch") {
+            setAuthError("Failed to connect to Supabase database. If your Supabase project is paused, please unpause/restore it in the Supabase dashboard.");
+          } else {
+            setAuthError(error.message);
+          }
+        } else {
+          setAuthError("Check your email to confirm signup!");
+        }
       }
+    } catch (err) {
+      setAuthError(err.message || "Authentication error occurred.");
     } finally {
       setAuthLoading(false);
     }
   };
 
+  const handleGuestLogin = () => {
+    const guestUser = {
+      id: "guest_" + (email.trim() ? email.trim().replace(/[^a-zA-Z0-9]/g, "_") : "user"),
+      email: email.trim() || "guest@mockinterview.ai",
+      isGuest: true,
+    };
+    setUser(guestUser);
+    try {
+      localStorage.setItem("mock_guest_user", JSON.stringify(guestUser));
+    } catch (e) {}
+  };
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
+    try {
+      localStorage.removeItem("mock_guest_user");
+    } catch (e) {}
     setUser(null);
     setHistory([]);
   };
@@ -159,7 +253,7 @@ function App() {
     setTimerActive(false);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        `${API_BASE_URL}/submit-answer`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -191,7 +285,7 @@ function App() {
     setShowHistory(false);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/start-interview",
+        `${API_BASE_URL}/start-interview`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -216,16 +310,6 @@ function App() {
     }
   };
 
-  const extractScore = (text) => {
-    if (!text) return "7";
-    const matchSlash = text.match(/(\d+(?:\.\d+)?)\s*(?:\/|\s*out of\s*)\s*10/i);
-    if (matchSlash) return Math.round(parseFloat(matchSlash[1])).toString();
-    const matchScoreWord = text.match(/score\s*:\s*(\d+)/i);
-    if (matchScoreWord) return matchScoreWord[1];
-    const match = text.match(/(\d+)\s*\/\s*10/);
-    return match ? match[1] : "7";
-  };
-
   const submitAnswer = async () => {
     if (!input.trim()) return;
     setTimerActive(false);
@@ -236,7 +320,7 @@ function App() {
     setHintsUsed(0);
     try {
       const res = await fetch(
-        "https://mock-interview-ai-hr52.onrender.com/submit-answer",
+        `${API_BASE_URL}/submit-answer`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -416,9 +500,16 @@ function App() {
           <button
             onClick={handleAuth}
             disabled={authLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition mb-4"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition mb-3"
           >
             {authLoading ? "Loading..." : authMode === "login" ? "Login" : "Sign Up"}
+          </button>
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            className="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-gray-300 font-semibold py-3 rounded-xl transition mb-4 flex items-center justify-center gap-2 text-sm"
+          >
+            🚀 Continue as Guest (Skip Login)
           </button>
           <p className="text-center text-gray-400 text-sm">
             {authMode === "login" ? "Account ledu? " : "Already account undi? "}
@@ -477,14 +568,19 @@ function App() {
                   <div className="bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-gray-400 text-xs">Average</p>
                     <p className="text-yellow-400 font-bold text-xl">
-                      {(history.filter(h => h.score !== "?").reduce((sum, h) => sum + parseInt(h.score), 0) /
-                        (history.filter(h => h.score !== "?").length || 1)).toFixed(1)}
+                      {(() => {
+                        const valid = history.map((h) => parseInt(h.score, 10)).filter((s) => !isNaN(s));
+                        return valid.length ? (valid.reduce((sum, s) => sum + s, 0) / valid.length).toFixed(1) : "0.0";
+                      })()}
                     </p>
                   </div>
                   <div className="bg-gray-800 rounded-xl p-3 text-center">
                     <p className="text-gray-400 text-xs">Best</p>
                     <p className="text-green-400 font-bold text-xl">
-                      {Math.max(...history.filter(h => h.score !== "?").map(h => parseInt(h.score)), 0)}
+                      {(() => {
+                        const valid = history.map((h) => parseInt(h.score, 10)).filter((s) => !isNaN(s));
+                        return valid.length ? Math.max(...valid) : 0;
+                      })()}
                     </p>
                   </div>
                 </div>
